@@ -1,4 +1,4 @@
-# Proverbs-Ollama
+# Bibel-Ollama
 
 Proverbs-Ollama is a Python project that retrieves any chapter from any book in the Bible, analyzes it using an Ollama language model, and provides an explanation of the chapter's content.
 
