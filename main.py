@@ -1,107 +1,82 @@
-import pythonbible as bible
+import pythonbible as pb
 from ollama import chat
 from ollama import ChatResponse
+import uuid
+import os
+import requests
+import subprocess
+import time
 
-# Returns the starting verse number for a given chapter in Proverbs
-def book_bible(bible_book): 
-    if bible_book == 1:
-        return 20001001
-    elif bible_book == 2:
-        return 20002001
-    elif bible_book == 3:
-        return 20003001
-    elif bible_book == 4:
-        return 20004001
-    elif bible_book == 5:
-        return 20005001
-    elif bible_book == 6:
-        return 20006001
-    elif bible_book == 7:
-        return 20007001
-    elif bible_book == 8:
-        return 20008001
-    elif bible_book == 9:
-        return 20009001
-    elif bible_book == 10:
-        return 20010001
-    elif bible_book == 11:
-        return 20011001
-    elif bible_book == 12:
-        return 20012001
-    elif bible_book == 13:
-        return 20013001
-    elif bible_book == 14:
-        return 20014001
-    elif bible_book == 15:
-        return 20015001
-    elif bible_book == 16:
-        return 20016001
-    elif bible_book == 17:
-        return 20017001
-    elif bible_book == 18:
-        return 20018001
-    elif bible_book == 19:
-        return 20019001
-    elif bible_book == 20:
-        return 20020001
-    elif bible_book == 21:
-        return 20021001
-    elif bible_book == 22:
-        return 20022001
-    elif bible_book == 23:
-        return 20023001
-    elif bible_book == 24:
-        return 20024001
-    elif bible_book == 25:
-        return 20025001
-    elif bible_book == 26:
-        return 20026001
-    elif bible_book == 27:
-        return 20027001
-    elif bible_book == 28:
-        return 20028001
-    elif bible_book == 29:
-        return 20029001
-    elif bible_book == 30:
-        return 20030001
-    elif bible_book == 31:
-        return 20031001
-    return None
+def start_ollama_if_needed():
+    try:
+        requests.get("http://localhost:11434")
+    except:
+        subprocess.Popen(
+            ["ollama", "serve"],
+            start_new_session=True
+        )
+        time.sleep(5)
 
-# Variable to store the complete chapter text
-book_complite = ""
+search_config = {
+    "book": "",
+    "chapter": "",
+    "verseID": "",
+}
 
-# Prompt user for the chapter number in Proverbs
-bible_book = int(input("Which book do you want? 1-31: ")) 
+search_results = {
+    "verses_param": 0,
+    "verses": [],
+    "context": "",
+}
 
-# Get the starting verse number for the selected chapter
-bible_verse = book_bible(bible_book)
 
-if bible_verse is None:
-    print("Invalid book number.")
-    exit()
+# QUESTIONS ----------------------------------------
+usr_book = input("Which book do you want? ") 
+search_config["book"] = usr_book
 
-# Count the number of verses in the selected chapter
-count = bible.get_number_of_verses(bible.Book.PROVERBS, chapter=bible_book) # count the number of verses
+usr_chapter = int(input("Which chapter do you want? "))
+search_config["chapter"] = usr_chapter
 
-# Retrieve all verses in the selected chapter and concatenate them
-for i in range(count):
-    vers_get =  bible.get_verse_text(bible_verse)
-    book_complite += vers_get
-    bible_verse += 1  # Move to the next verse
+book = getattr(pb.Book, search_config["book"].upper())
+number_of_verses = pb.get_number_of_verses(book, search_config["chapter"])
+reference = pb.NormalizedReference(
+    book,
+    search_config["chapter"],
+    1,
+    search_config["chapter"],
+    number_of_verses
+)
+verse_ids = pb.convert_reference_to_verse_ids(reference)
+search_config["verseID"] = verse_ids
 
-# Print the complete chapter text
-print(book_complite)
+search_results = {"verses_param": len(verse_ids), "verses": [], "context": ""}
 
-# Use the Ollama model to analyze the Proverbs chapter
+# RETREIVE ALL VERSES ------------------------------
+for vid in verse_ids:
+    txt = pb.get_verse_text(vid)
+    search_results["verses"].append(txt)
+    search_results["context"] += txt + "\n"
+
+# ANALYZE CONTEXT ------------------------------
+start_ollama_if_needed()
 response: ChatResponse = chat(
     model='llama3.2',
     messages=[
         {
             'role': 'user',
-            'content': f"{book_complite}\n\nExplain this chapter of Proverbs. Give me the text and explanation."
+            'content': f"{search_results['context']}\n\nExplain this chapter of {search_config['book']}. Give me the text and explanation."
         },
     ],
 )
 
+# PRINT ANALYSIS ---------------------------------
+
+base_path = f"usr/{uuid.uuid4()}"
+os.makedirs(base_path, exist_ok=True)
+
 print(response['message']['content'])
+with open(f"{base_path}/output.txt", "w") as f:
+    f.write(response['message']['content'])
+
+with open(f"{base_path}/input.txt", "w") as f:
+    f.write(search_results['context'])
