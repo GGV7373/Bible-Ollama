@@ -17,6 +17,29 @@ def start_ollama_if_needed():
         )
         time.sleep(5)
 
+def books_list():
+    books = ["Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
+            "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel",
+            "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra",
+            "Nehemiah", "Esther", "Job", "Psalms", "Proverbs",
+            "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah",
+            "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel",
+            "Amos", "Obadiah", "Jonah", "Micah", "Nahum",
+            "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi",
+            "Matthew", "Mark", "Luke", "John", "Acts", "Romans",
+            "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians", "Philippians", "Colossians",
+            "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon", "Colossians",
+            "Hebrews", "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John", "Jude", "Revelation"]
+    
+    # Format books in columns
+    columns = 4
+    formatted_list = ""
+    for i in range(0, len(books), columns):
+        row = books[i:i + columns]
+        formatted_list += "".join(f"{book:<20}" for book in row) + "\n"
+    
+    return formatted_list
+
 search_config = {
     "book": "",
     "chapter": "",
@@ -31,6 +54,13 @@ search_results = {
 
 
 # QUESTIONS ----------------------------------------
+print("Welcome to Bible + Ollama!")
+
+anser = input("Do you want to get the boos of the bibele? y/n: ")
+if anser.lower() == 'y':
+    print("Here are the available books:")
+    print(books_list())
+
 usr_book = input("Which book do you want? ") 
 search_config["book"] = usr_book
 
