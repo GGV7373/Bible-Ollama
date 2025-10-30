@@ -54,59 +54,86 @@ search_results = {
 
 
 # QUESTIONS ----------------------------------------
-print("Welcome to Bible + Ollama!")
+def process_chapter_lookup():
+    try:
+        anser = input("\nDo you want to see the list of Bible books? (y/n): ")
+        if anser.lower() == 'y':
+            print("\nHere are the available books:")
+            print(books_list())
 
-anser = input("Do you want to get the boos of the bibele? y/n: ")
-if anser.lower() == 'y':
-    print("Here are the available books:")
-    print(books_list())
+        usr_book = input("\nWhich book do you want? ").strip()
+        search_config["book"] = usr_book
 
-usr_book = input("Which book do you want? ") 
-search_config["book"] = usr_book
+        usr_chapter = int(input("Which chapter do you want? "))
+        search_config["chapter"] = usr_chapter
 
-usr_chapter = int(input("Which chapter do you want? "))
-search_config["chapter"] = usr_chapter
+        book = getattr(pb.Book, search_config["book"].upper())
+        number_of_verses = pb.get_number_of_verses(book, search_config["chapter"])
+        reference = pb.NormalizedReference(
+            book,
+            search_config["chapter"],
+            1,
+            search_config["chapter"],
+            number_of_verses
+        )
+        verse_ids = pb.convert_reference_to_verse_ids(reference)
+        search_config["verseID"] = verse_ids
 
-book = getattr(pb.Book, search_config["book"].upper())
-number_of_verses = pb.get_number_of_verses(book, search_config["chapter"])
-reference = pb.NormalizedReference(
-    book,
-    search_config["chapter"],
-    1,
-    search_config["chapter"],
-    number_of_verses
-)
-verse_ids = pb.convert_reference_to_verse_ids(reference)
-search_config["verseID"] = verse_ids
+        search_results = {"verses_param": len(verse_ids), "verses": [], "context": ""}
 
-search_results = {"verses_param": len(verse_ids), "verses": [], "context": ""}
+        # RETREIVE ALL VERSES ------------------------------
+        for vid in verse_ids:
+            txt = pb.get_verse_text(vid)
+            search_results["verses"].append(txt)
+            search_results["context"] += txt + "\n"
 
-# RETREIVE ALL VERSES ------------------------------
-for vid in verse_ids:
-    txt = pb.get_verse_text(vid)
-    search_results["verses"].append(txt)
-    search_results["context"] += txt + "\n"
+        # ANALYZE CONTEXT ------------------------------
+        start_ollama_if_needed()
+        response: ChatResponse = chat(
+            model='llama3.2',
+            messages=[
+                {
+                    'role': 'user',
+                    'content': f"{search_results['context']}\n\nExplain this chapter of {search_config['book']}. Give me the text and explanation."
+                },
+            ],
+        )
 
-# ANALYZE CONTEXT ------------------------------
-start_ollama_if_needed()
-response: ChatResponse = chat(
-    model='llama3.2',
-    messages=[
-        {
-            'role': 'user',
-            'content': f"{search_results['context']}\n\nExplain this chapter of {search_config['book']}. Give me the text and explanation."
-        },
-    ],
-)
+        # PRINT ANALYSIS ---------------------------------
 
-# PRINT ANALYSIS ---------------------------------
+        base_path = f"usr/{uuid.uuid4()}"
+        os.makedirs(base_path, exist_ok=True)
 
-base_path = f"usr/{uuid.uuid4()}"
-os.makedirs(base_path, exist_ok=True)
+        print("\nAnalysis:")
+        print("-" * 80)
+        print(response['message']['content'])
+        print("-" * 80)
 
-print(response['message']['content'])
-with open(f"{base_path}/output.txt", "w") as f:
-    f.write(response['message']['content'])
+        with open(f"{base_path}/output.txt", "w") as f:
+            f.write(response['message']['content'])
+        with open(f"{base_path}/input.txt", "w") as f:
+            f.write(search_results['context'])
 
-with open(f"{base_path}/input.txt", "w") as f:
-    f.write(search_results['context'])
+        return True
+
+    except (AttributeError, ValueError) as e:
+        print(f"\nError: Invalid book or chapter. Please try again.")
+        return True
+    except Exception as e:
+        print(f"\nAn error occurred: {str(e)}")
+        return True
+
+def main():
+    print("Welcome to Bible + Ollama!")
+    
+    while True:
+        if not process_chapter_lookup():
+            break
+            
+        again = input("\nWould you like to look up another chapter? (y/n): ")
+        if again.lower() != 'y':
+            print("\nThank you for using Bible + Ollama. Goodbye!")
+            break
+
+if __name__ == "__main__":
+    main()
