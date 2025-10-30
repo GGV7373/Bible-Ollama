@@ -31,7 +31,6 @@ def books_list():
             "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon", "Colossians",
             "Hebrews", "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John", "Jude", "Revelation"]
     
-    # Format books in columns
     columns = 4
     formatted_list = ""
     for i in range(0, len(books), columns):
@@ -52,8 +51,6 @@ search_results = {
     "context": "",
 }
 
-
-# QUESTIONS ----------------------------------------
 def process_chapter_lookup():
     try:
         anser = input("\nDo you want to see the list of Bible books? (y/n): ")
@@ -81,16 +78,15 @@ def process_chapter_lookup():
 
         search_results = {"verses_param": len(verse_ids), "verses": [], "context": ""}
 
-        # RETREIVE ALL VERSES ------------------------------
         for vid in verse_ids:
             txt = pb.get_verse_text(vid)
             search_results["verses"].append(txt)
             search_results["context"] += txt + "\n"
 
-        # ANALYZE CONTEXT ------------------------------
+        print("\nAnalyzing the chapter with Ollama...")
         start_ollama_if_needed()
         response: ChatResponse = chat(
-            model='llama3.2',
+            model='tinyllama',
             messages=[
                 {
                     'role': 'user',
@@ -99,29 +95,21 @@ def process_chapter_lookup():
             ],
         )
 
-        # PRINT ANALYSIS ---------------------------------
-
-        base_path = f"usr/{uuid.uuid4()}"
-        os.makedirs(base_path, exist_ok=True)
-
+        # Print analysis instead of saving to files
         print("\nAnalysis:")
         print("-" * 80)
         print(response['message']['content'])
         print("-" * 80)
 
-        with open(f"{base_path}/output.txt", "w") as f:
-            f.write(response['message']['content'])
-        with open(f"{base_path}/input.txt", "w") as f:
-            f.write(search_results['context'])
+        return True  # Continue the loop
 
-        return True
-
-    except (AttributeError, ValueError) as e:
-        print(f"\nError: Invalid book or chapter. Please try again.")
+    except (AttributeError, ValueError):
+        print("\nError: Invalid book or chapter. Please try again.")
         return True
     except Exception as e:
         print(f"\nAn error occurred: {str(e)}")
         return True
+
 
 def main():
     print("Welcome to Bible + Ollama!")
