@@ -1,2 +1,18 @@
+# Virtual environments
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Old output folder
 /usr
-/venv
+
+# Environment / secrets
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

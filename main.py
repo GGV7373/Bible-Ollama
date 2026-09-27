@@ -1,21 +1,36 @@
 import pythonbible as pb
 from ollama import chat
 from ollama import ChatResponse
-import uuid
 import os
 import requests
 import subprocess
 import time
+from urllib.parse import urlparse
+
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
+
+def ollama_is_up():
+    try:
+        requests.get(OLLAMA_HOST, timeout=2)
+        return True
+    except requests.RequestException:
+        return False
 
 def start_ollama_if_needed():
-    try:
-        requests.get("http://localhost:11434")
-    except:
-        subprocess.Popen(
-            ["ollama", "serve"],
-            start_new_session=True
-        )
-        time.sleep(5)
+    if ollama_is_up():
+        return
+    # Only try to start a server ourselves if it's supposed to be local
+    if urlparse(OLLAMA_HOST).hostname not in ("localhost", "127.0.0.1"):
+        return
+    subprocess.Popen(
+        ["ollama", "serve"],
+        start_new_session=True
+    )
+    for _ in range(30):
+        if ollama_is_up():
+            return
+        time.sleep(0.5)
 
 def books_list():
     books = ["Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
@@ -28,7 +43,7 @@ def books_list():
             "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi",
             "Matthew", "Mark", "Luke", "John", "Acts", "Romans",
             "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians", "Philippians", "Colossians",
-            "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon", "Colossians",
+            "1 Thessalonians", "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon",
             "Hebrews", "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John", "Jude", "Revelation"]
     
     columns = 4
@@ -45,12 +60,6 @@ search_config = {
     "verseID": "",
 }
 
-search_results = {
-    "verses_param": 0,
-    "verses": [],
-    "context": "",
-}
-
 def process_chapter_lookup():
     try:
         anser = input("\nDo you want to see the list of Bible books? (y/n): ")
@@ -64,7 +73,10 @@ def process_chapter_lookup():
         usr_chapter = int(input("Which chapter do you want? "))
         search_config["chapter"] = usr_chapter
 
-        book = getattr(pb.Book, search_config["book"].upper())
+        references = pb.get_references(f"{usr_book} {usr_chapter}")
+        if not references:
+            raise ValueError("Unknown book")
+        book = references[0].book
         number_of_verses = pb.get_number_of_verses(book, search_config["chapter"])
         reference = pb.NormalizedReference(
             book,
@@ -86,7 +98,7 @@ def process_chapter_lookup():
         print("\nAnalyzing the chapter with Ollama...")
         start_ollama_if_needed()
         response: ChatResponse = chat(
-            model='tinyllama',
+            model=OLLAMA_MODEL,
             messages=[
                 {
                     'role': 'user',
